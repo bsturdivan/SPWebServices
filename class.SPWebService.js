@@ -61,16 +61,43 @@ var SPWebService = SPWebService || {};
 			m = 'GetListItems'; 
 		}
 
-		return envelope = $("<soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'><soap:Body><"+m+" xmlns='http://schemas.microsoft.com/sharepoint/soap/'><listName></listName><viewName></viewName></"+m+"></soap:Body></soap:Envelope>");
+		return envelope = $("<soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'><soap:Body><"+m+" xmlns='http://schemas.microsoft.com/sharepoint/soap/'><listName>"+ln+"</listName><viewName>"+vn+"</viewName>{{XMLTMP}}</"+m+"></soap:Body></soap:Envelope>");
+	};
+
+	this.conditionParser = function(where) {
+	    var i = 0,
+	        vars = {},
+	        hash, hashes = where.split(/and|or/),
+	        hashLen = hashes.length;
+	    for (; i < hashLen; i++) {
+	        hash = hashes[i].split('=');
+	        vars[$.trim(hash[0])] = $.trim(hash[1]);
+	    }
+	    return vars;
 	};
 	
+	//Publicly accessible methods
 	return {
-		updateListItems: function(cols) {
-			return sendData(d, 'updateListItems');
+		/**
+		* @param Array cols Columns to query in select statement
+		* @param String condition Accepts a standard SQL where statement //id=x and Assessment_x0020_Area='y'
+		**/
+		getListItems: function(cols, condition) {
+			var i=0,
+				colTotal = cols.length,
+				viewFields = '<viewFields><ViewFields>';
+			for(; i<=colTotal; i++) {
+				viewFields += '<FieldRef Name='+cols[i]+' />';
+			}
+			viewFields += '</ViewFields></viewFields>';
+			return sendData(d, 'getListItems');
 		},
 		
-		getListItems: function() {
-			return sendData(d, 'getListItems');
+		/**
+		* @param Object cols Key->Value pair to modify row
+		**/
+		updateListItems: function(cols) {
+			return sendData(d, 'updateListItems');
 		}
 	};
 	
