@@ -1,10 +1,10 @@
 var SPWebService = SPWebService || {};
 
-(function(url) {
+SPWebService = (function(url) {
 	
 	this.url = url;
 	
-	this.AJAXConstructor = function(SAction) {
+	 var AJAXConstructor = function(SAction) {
 		$.ajaxSetup({
             url: url+'/_vti_bin/lists.asmx',
             type: "POST",
@@ -15,43 +15,48 @@ var SPWebService = SPWebService || {};
         });
         console.log('AJAX Setup');
 	}();
-	
-	this.verify = function(data) {
+
+	var verify = function(data) {
 		//if no error return true;
 		//else return error code;
+		var err = '';
+		return true;
 	};
 	
-	this.error = function(errorCode, status) {
+	var error = function(errorCode, status) {
 		//do something with the error
 		//For error message display purposes only
+		return false;
 	};
-	
-	this.processor = funtion(data) {
-		var isError = verify(data);
+
+	var processor = function(XMLdata) {
+		var isError = verify(XMLdata);
 		if(!isError) {
-			request();
+			console.log(XMLData);
 		}
 		else {
 			return error(isError);
 		}
 	};
-	
-	this.sendData = function(d, method) {
+		
+	var sendData = function(d) {
 		$.ajax({
 	        beforeSend: function(xhr) {
-	            xhr.setRequestHeader("SOAPAction", "http://schemas.microsoft.com/sharepoint/soap/"+method);
+	            xhr.setRequestHeader("SOAPAction","http://schemas.microsoft.com/sharepoint/soap/GetListItems");
 	        },
 	        data: d,
 	        success: function(data) {
-                return processor(data);
+                //return processor(data);
+                return data;
             },
             error: function(jqXHR, textStatus) {
-                return error(jqXHR, textStatus);
+                //return error(jqXHR, textStatus);
+                return d;
             }
 	    });
 	};
 	
-	this.soapWrapper = function(ln, vn, method) {
+	var soapWrapper = function(ln, vn, q, method) {
 		var m, envelope;
 
 		if(method.toLowerCase()==='updatelistitems') {
@@ -61,10 +66,10 @@ var SPWebService = SPWebService || {};
 			m = 'GetListItems'; 
 		}
 
-		return envelope = $("<soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'><soap:Body><"+m+" xmlns='http://schemas.microsoft.com/sharepoint/soap/'><listName>"+ln+"</listName><viewName>"+vn+"</viewName>{{XMLTMP}}</"+m+"></soap:Body></soap:Envelope>");
+		return envelope = "<soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'><soap:Body><"+m+" xmlns='http://schemas.microsoft.com/sharepoint/soap/'><listName>"+ln+"</listName><viewName>"+vn+"</viewName>"+q+"</"+m+"></soap:Body></soap:Envelope>";
 	};
 
-	this.conditionParser = function(where) {
+	var conditionParser = function(where) {
 	    var i = 0,
 	        vars = {},
 	        hash, hashes = where.split(/and|or/),
@@ -79,26 +84,46 @@ var SPWebService = SPWebService || {};
 	//Publicly accessible methods
 	return {
 		/**
-		* @param Array cols Columns to query in select statement
-		* @param String condition Accepts a standard SQL where statement //id=x and Assessment_x0020_Area='y'
+		 * Receives columns and conditions like an SQL select statement
+		 * @param Array cols Columns to query in select statement
+		 * @param Optional String condition Accepts a standard CAML where statement
+		 * @return XML
 		**/
-		getListItems: function(cols, condition) {
+		getListItems: function(list, view, cols) {
 			var i=0,
 				colTotal = cols.length,
-				viewFields = '<viewFields><ViewFields>';
-			for(; i<=colTotal; i++) {
-				viewFields += '<FieldRef Name='+cols[i]+' />';
+				columns = '',
+				colRef = '',
+				conditions = '',
+				listQuery = '',
+				query = '<query><Query>{{conditions}}</Query></query>',
+				soap = '',
+				viewFields = '<viewFields><ViewFields>{{fields}}</ViewFields></viewFields>';
+			for(; i<colTotal; i++) {
+				columns += '<FieldRef Name="'+cols[i]+'"" />';
 			}
-			viewFields += '</ViewFields></viewFields>';
-			return sendData(d, 'getListItems');
+			colRef = viewFields.replace('{{fields}}', columns);
+
+			if(arguments[3]) {
+				conditions = query.replace('{{conditions}}', arguments[3]);
+			}
+			listQuery = colRef+conditions;
+			soap = soapWrapper(list, view, listQuery, 'getListItems');
+			console.log(soap);
+			return sendData(soap);
+			//return soap;
 		},
 		
 		/**
-		* @param Object cols Key->Value pair to modify row
+		 * Updates or creates a new table row
+		 * @param Object cols Key->Value pair to modify row
+		 * @return XML
 		**/
 		updateListItems: function(cols) {
 			return sendData(d, 'updateListItems');
 		}
 	};
 	
-}).call(SPWebService, url);
+})('https://nserc.navy.mil/spawar/hq/chengws/TechRev');
+
+console.log(SPWebService.getListItems('{A2D3739E-C1F6-4A61-951B-FBBE4476BD4A}', '{A2FEAB3C-CB38-40DE-B20E-BD9493D18308}', ['ID', 'Title', 'Technical_x0020_Discipline_x0020', 'Risk_x0020_Assessment', 'ACAT_x0020_Level_x0028_s_x0029_', 'SETR_x0020_Event_x0020_Type', 'Parent_x0020_Question', 'Assessment_x0020_Criteria_x002f_', 'Reference_x0020_Document_x002f_I', 'Relevant_x0020_Document_x0028_s_', 'Comments', 'Core_x0020_Question_x003f_', 'CSE_x0020_Assigned', 'Scope'], "<Where><And><Eq><FieldRef Name='SETR_x0020_Event_x0020_Type' /><Value Type='String'>TRR</Value></Eq><Eq><FieldRef Name='Technical_x0020_Discipline_x0020' /><Value Type='String'>Chief System Engineer</Value></Eq></And></Where>"));
